@@ -17,5 +17,11 @@ type UserServer struct {
 func (p *UserServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	user := strings.TrimPrefix(r.URL.Path, "/users/")
 
-	fmt.Fprint(w, p.store.GetUserPosts(user))
+	posts := p.store.GetUserPosts(user)
+
+	if posts == 0 {
+		w.WriteHeader(http.StatusNotFound)
+	}
+
+	fmt.Fprint(w, posts)
 }
