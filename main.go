@@ -1,11 +1,17 @@
-package server
+package main
 
 import (
 	"log"
 	"net/http"
 )
 
+type InMemoryUserStore struct{}
+
+func (i *InMemoryUserStore) GetUserPosts(user string) int {
+	return 123
+}
+
 func main() {
-	handler := http.HandlerFunc(UserServer)
-	log.Fatal(http.ListenAndServe(":5000", handler))
+	server := &UserServer{&InMemoryUserStore{}}
+	log.Fatal(http.ListenAndServe(":5000", server))
 }

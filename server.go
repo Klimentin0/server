@@ -1,4 +1,4 @@
-package server
+package main
 
 import (
 	"fmt"
@@ -6,16 +6,16 @@ import (
 	"strings"
 )
 
-func UserServer(w http.ResponseWriter, r *http.Request) {
+type UserStore interface {
+	GetUserPosts(user string) int
+}
+
+type UserServer struct {
+	store UserStore
+}
+
+func (p *UserServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	user := strings.TrimPrefix(r.URL.Path, "/users/")
 
-	if user == "admin" {
-		fmt.Fprint(w, "20")
-		return
-	}
-
-	if user == "klim" {
-		fmt.Fprint(w, "10")
-		return
-	}
+	fmt.Fprint(w, p.store.GetUserPosts(user))
 }
