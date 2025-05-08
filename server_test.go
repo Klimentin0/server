@@ -8,7 +8,8 @@ import (
 )
 
 type StubUserStore struct {
-	posts map[string]int
+	posts        map[string]int
+	commentPosts []string
 }
 
 func TestGETusers(t *testing.T) {
@@ -17,8 +18,9 @@ func TestGETusers(t *testing.T) {
 			"admin": 20,
 			"klim":  10,
 		},
+		nil,
 	}
-	server := &UserServer{&store}
+	server := NewUserServer(&store)
 
 	t.Run("returns admin's posts", func(t *testing.T) {
 		request := newGetPostsRequest("admin")
@@ -71,4 +73,53 @@ func assertResponseBody(t testing.TB, got, want string) {
 func (s *StubUserStore) GetUserPosts(user string) int {
 	posts := s.posts[user]
 	return posts
+}
+
+func (s *StubUserStore) PostComment(user string) {
+	s.commentPosts = append(s.commentPosts, user)
+}
+
+func TestStoreComments(t *testing.T) {
+	store := StubUserStore{
+		map[string]int{},
+		nil,
+	}
+	server := NewUserServer(&store)
+
+	t.Run("it returns accepted on POST", func(t *testing.T) {
+		user := "klim"
+		request := newPostCommentRequest(user)
+		response := httptest.NewRecorder()
+
+		server.ServeHTTP(response, request)
+
+		assertStatus(t, response.Code, http.StatusAccepted)
+
+		if len(store.commentPosts) != 1 {
+			t.Fatalf("got %d calls to PostComment want %d", len(store.commentPosts), 1)
+		}
+
+		if store.commentPosts[0] != user {
+			t.Errorf("did not store correct winner got %q want %q", store.commentPosts[0], user)
+		}
+	})
+}
+
+func newPostCommentRequest(user string) *http.Request {
+	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/users/%s", user), nil)
+	return req
+}
+
+func TestBlog(t *testing.T) {
+	store := StubUserStore{}
+	server := NewUserServer(&store)
+
+	t.Run("it returns 200 on /blog", func(t *testing.T) {
+		request, _ := http.NewRequest(http.MethodGet, "/blog", nil)
+		response := httptest.NewRecorder()
+
+		server.ServeHTTP(response, request)
+
+		assertStatus(t, response.Code, http.StatusOK)
+	})
 }
