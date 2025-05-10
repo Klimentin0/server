@@ -1,15 +1,23 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 )
 
 type StubUserStore struct {
 	posts        map[string]int
 	commentPosts []string
+	blog         []User
+}
+
+func (s *StubUserStore) GetBlog() []User {
+	return s.blog
 }
 
 func TestGETusers(t *testing.T) {
@@ -18,6 +26,7 @@ func TestGETusers(t *testing.T) {
 			"admin": 20,
 			"klim":  10,
 		},
+		nil,
 		nil,
 	}
 	server := NewUserServer(&store)
@@ -83,6 +92,7 @@ func TestStoreComments(t *testing.T) {
 	store := StubUserStore{
 		map[string]int{},
 		nil,
+		nil,
 	}
 	server := NewUserServer(&store)
 
@@ -111,15 +121,52 @@ func newPostCommentRequest(user string) *http.Request {
 }
 
 func TestBlog(t *testing.T) {
-	store := StubUserStore{}
-	server := NewUserServer(&store)
+	t.Run("it returns the blog stats as JSON", func(t *testing.T) {
+		wantedBlog := []User{
+			{"Lara", 32},
+			{"Rachel", 22},
+			{"Kyle", 42},
+		}
+		store := StubUserStore{nil, nil, wantedBlog}
+		server := NewUserServer(&store)
 
-	t.Run("it returns 200 on /blog", func(t *testing.T) {
-		request, _ := http.NewRequest(http.MethodGet, "/blog", nil)
+		request := newBlogRequest()
 		response := httptest.NewRecorder()
-
 		server.ServeHTTP(response, request)
-
+		if response.Result().Header.Get("content-type") != "application/json" {
+			t.Errorf("response did not have content-type of application/json, got %v", response.Result().Header)
+		}
+		got := getBlogFromResponse(t, response.Body)
 		assertStatus(t, response.Code, http.StatusOK)
+		assertBlog(t, got, wantedBlog)
+		assertContentType(t, response, jsonContentType)
 	})
+}
+
+func getBlogFromResponse(t testing.TB, body io.Reader) (blog []User) {
+	t.Helper()
+	err := json.NewDecoder(body).Decode(&blog)
+	if err != nil {
+		t.Fatalf("Unable to parse response from server %q into slice of User, '%v'", body, err)
+	}
+	return
+}
+
+func assertBlog(t testing.TB, got, want []User) {
+	t.Helper()
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v want %v", got, want)
+	}
+}
+
+func assertContentType(t testing.TB, response *httptest.ResponseRecorder, want string) {
+	t.Helper()
+	if response.Result().Header.Get("content-type") != want {
+		t.Errorf("response did not have content-type of %s, got %v", want, response.Result().Header)
+	}
+}
+
+func newBlogRequest() *http.Request {
+	req, _ := http.NewRequest(http.MethodGet, "/blog", nil)
+	return req
 }

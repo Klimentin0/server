@@ -15,3 +15,11 @@ func (i *InMemoryUserStore) PostComment(user string) {
 func (i *InMemoryUserStore) GetUserPosts(user string) int {
 	return i.store[user]
 }
+
+func (i *InMemoryUserStore) GetBlog() []User {
+	var blog []User
+	for user, comments := range i.store {
+		blog = append(blog, User{user, comments})
+	}
+	return blog
+}

@@ -1,14 +1,21 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 )
 
+type User struct {
+	Name     string
+	Comments int
+}
+
 type UserStore interface {
 	GetUserPosts(user string) int
 	PostComment(user string)
+	GetBlog() []User
 }
 
 type UserServer struct {
@@ -16,24 +23,23 @@ type UserServer struct {
 	http.Handler
 }
 
+const jsonContentType = "application/json"
+
 func NewUserServer(store UserStore) *UserServer {
 	p := new(UserServer)
 	p.store = store
 	router := http.NewServeMux()
 	router.Handle("/blog", http.HandlerFunc(p.blogHandler))
-	router.Handle("/users", http.HandlerFunc(p.usersHandler))
+	router.Handle("/users/", http.HandlerFunc(p.usersHandler))
 
 	p.Handler = router
 
 	return p
 }
 
-func (p *UserServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	p.ServeHTTP(w, r)
-}
-
 func (p *UserServer) blogHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
+	w.Header().Set("content-type", jsonContentType)
+	json.NewEncoder(w).Encode(p.store.GetBlog())
 }
 
 func (p *UserServer) usersHandler(w http.ResponseWriter, r *http.Request) {
